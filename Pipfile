@@ -5,6 +5,9 @@ name = "pypi"
 
 [packages]
 requests = "*"
+beautifulsoup4 = "*"
+lxml = "*"
+pathvalidate = "*"
 
 [dev-packages]
 
