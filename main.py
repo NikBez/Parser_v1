@@ -2,12 +2,18 @@ import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import HTTPError
 import os
-from  pathvalidate import sanitize_filename
+from pathlib import Path
+from pathvalidate import sanitize_filename
+from urllib.parse import urljoin
 
+BOOK_FOLDER="books/"
+IMAGE_FOLDER="images/"
 
 def main():
 
-    os.makedirs('books', exist_ok=True)
+    os.makedirs(BOOK_FOLDER, exist_ok=True)
+    os.makedirs(IMAGE_FOLDER, exist_ok=True)
+
     for id in range(1,11):
         book_url = f"https://tululu.org/b{id}/"
         download_url = f"https://tululu.org/txt.php?id={id}"
@@ -18,33 +24,49 @@ def main():
             print(f'Книги c id "{id}" не существует.')
             continue
 
-        title, author = get_book_headers(head_response)
-        filename = f"{id}. {title}.txt"
+        title, author, image_link = get_book_context(head_response)
+        book_filename = f"{id}. {title}.txt"
+        book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
 
-        to_save_path = download_txt(download_response, filename)
-        print(f'Книга "{title}" сохранена: {to_save_path}')
+        image_filename = Path(image_link).name
+        full_img_link = urljoin(book_url, image_link)
+
+        book_image_save_path = download_image(full_img_link, image_filename, IMAGE_FOLDER)
+
+
+        print(f'Книга "{title}" сохранена в: "{book_save_path}"')
 
 
 def check_redirect(response):
     if response.status_code !=200:
         raise HTTPError()
 
-def get_book_headers(response):
 
-    titles = BeautifulSoup(response.text, 'lxml')
-    title_and_author = titles.find('td', class_='ow_px_td').find('h1').text
-    title, author =  title_and_author.split('::')
-    return title.strip(), author.strip()
+def get_book_context(response):
 
-def download_txt(response, filename='text/text/1.txt', folder='books/'):
+    context = BeautifulSoup(response.text, 'lxml')
+    title_and_author = context.find('td', class_='ow_px_td').find('h1').text
+    picture_link = context.find("div", class_="bookimage").find("img")["src"]
+    title, author = title_and_author.split('::')
+    return title.strip(), author.strip(), picture_link
+
+
+def download_txt(response, filename, folder='books/'):
 
     cleaned_filename = sanitize_filename(filename)
-    to_save_path = os.path.join(folder, cleaned_filename)
-    with open(to_save_path, 'wb') as book:
+    book_save_path = os.path.join(folder, cleaned_filename)
+    with open(book_save_path, 'wb') as book:
         book.write(response.content)
-    return to_save_path
+    return book_save_path
 
+def download_image(img_url, img_filename, folder='images/'):
 
+    response = requests.get(img_url)
+    response.raise_for_status()
+    image_save_path = os.path.join(folder, img_filename)
+    with open(image_save_path, "wb") as image:
+        image.write(response.content)
+    return image_save_path
 
 def get_response_and_check(*urls):
     responses = []
