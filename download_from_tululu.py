@@ -6,13 +6,11 @@ import os
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from urllib.parse import urljoin
-from itertools import count
 
 BOOK_FOLDER="books/"
 IMAGE_FOLDER="images/"
 COMMENTS_FOLDER="comments/"
 GENRE="Научная фантастика"
-TO_DOWNLOAD=10
 
 def main():
 
@@ -25,9 +23,8 @@ def main():
 
     downloaded = 0
 
-    for id in count(start=args.start_id):
-        if downloaded == TO_DOWNLOAD or id==args.end_id:
-            break
+    for id in range(args.start_id, args.end_id+1):
+
         book_url = f"https://tululu.org/b{id}/"
         download_url = f"https://tululu.org/txt.php?id={id}"
         try:
@@ -54,11 +51,6 @@ def main():
         print(f'Книга "{book_context["title"]}" сохранена в: "{book_save_path}"')
 
     print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ")
-
-
-def check_redirect(response):
-    if response.status_code !=200:
-        raise HTTPError()
 
 
 def parse_book_context(response):
@@ -118,6 +110,10 @@ def get_response_and_check(*urls):
         check_redirect(response)
         responses.append(response)
     return responses
+
+def check_redirect(response):
+    if response.status_code !=200:
+        raise HTTPError()
 
 
 if __name__ == "__main__":
