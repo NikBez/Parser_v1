@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from urllib.parse import urljoin
+from tqdm import tqdm
+
 
 BOOK_FOLDER="books/"
 IMAGE_FOLDER="images/"
@@ -23,7 +25,10 @@ def main():
 
     downloaded = 0
 
-    for id in range(args.start_id, args.end_id+1):
+    # for id in range(args.start_id, args.end_id+1):
+    for id in tqdm(range(args.start_id, args.end_id+1)):
+
+        print('\033[H') # Чистим экран
 
         book_url = f"https://tululu.org/b{id}/"
         download_url = f"https://tululu.org/txt.php?id={id}"
