@@ -11,10 +11,11 @@ from tqdm import tqdm
 from time import sleep
 
 
-BOOK_FOLDER="books/"
-IMAGE_FOLDER="images/"
-COMMENTS_FOLDER="comments/"
-GENRE="Научная фантастика"
+BOOK_FOLDER = "books/"
+IMAGE_FOLDER = "images/"
+COMMENTS_FOLDER = "comments/"
+GENRE = "Научная фантастика"
+
 
 def main():
 
@@ -29,10 +30,10 @@ def main():
 
     for book_id in tqdm(range(args.start_id, args.end_id+1)):
         try:
-            print('\033[H') # Чистим экран
+            print('\033[H')  # Чистим экран
             book_urls = {
-                        "book_url":f"https://tululu.org/b{book_id}/",
-                        "download_url":f"https://tululu.org/txt.php",
+                        "book_url": f"https://tululu.org/b{book_id}/",
+                        "download_url": f"https://tululu.org/txt.php",
                         }
             for type_of_url, url in book_urls.items():
                 response = get_response(url, book_id)
@@ -44,7 +45,7 @@ def main():
 
             book_context = parse_book_context(head_response)
 
-            if not GENRE in book_context['genres']:
+            if GENRE not in book_context['genres']:
                 print('\033[H')  # Чистим экран
                 print(f'Книги с id: "{book_id}" не подходит по жанру.')
                 continue
@@ -59,7 +60,7 @@ def main():
                 comments_filename = f"{book_id}. {book_context['title']}-comments.txt"
                 save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
 
-            downloaded+=1
+            downloaded += 1
             print('\033[H')  # Чистим экран
             print(f'Книга "{book_context["title"]}" сохранена в: "{book_save_path}".')
 
@@ -105,6 +106,7 @@ def download_txt(response, filename, folder='books/'):
         book.write(response.content)
     return book_save_path
 
+
 def download_image(img_url, img_filename, folder='images/'):
 
     os.makedirs(IMAGE_FOLDER, exist_ok=True)
@@ -115,12 +117,13 @@ def download_image(img_url, img_filename, folder='images/'):
         image.write(response.content)
     return image_save_path
 
+
 def save_comments(comments, filename, folder='comments/'):
 
     os.makedirs(COMMENTS_FOLDER, exist_ok=True)
     comments_save_path = os.path.join(folder, filename)
     with open(comments_save_path, 'w') as file:
-           file.write("\n".join(comments))
+        file.write("\n".join(comments))
 
 
 def get_response(url, id):
@@ -129,13 +132,14 @@ def get_response(url, id):
     response.raise_for_status()
     return response
 
-def check_redirect(response):
 
-    redirect_codes = [300,301,302,303,304,305,306,307,308]
+def check_redirect(response):
+    redirect_codes = [300, 301, 302, 303, 304, 305, 306, 307, 308]
 
     for code in response.history:
         if code.status_code in redirect_codes:
             raise HTTPError()
+
 
 if __name__ == "__main__":
     main()
