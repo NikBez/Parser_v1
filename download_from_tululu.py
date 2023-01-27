@@ -1,12 +1,14 @@
 import argparse
+
 import requests
 from bs4 import BeautifulSoup
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ConnectionError
 import os
 from pathlib import Path
 from pathvalidate import sanitize_filename
 from urllib.parse import urljoin
 from tqdm import tqdm
+from time import sleep
 
 
 BOOK_FOLDER="books/"
@@ -17,66 +19,80 @@ GENRE="Научная фантастика"
 def main():
 
     parser = argparse.ArgumentParser(
-        description = "Этот скрипт скачивает книги с библиотеки tululu.ru"
+        description="Этот скрипт скачивает книги с библиотеки tululu.ru."
     )
-    parser.add_argument('start_id', help="ID - с которого начать", type=int)
-    parser.add_argument('end_id', help="ID - которым закончить", type=int)
+    parser.add_argument('start_id', nargs='?', default=1, help="ID - с которого начать.", type=int)
+    parser.add_argument('end_id', nargs='?', default=10, help="ID - которым закончить.", type=int)
     args = parser.parse_args()
 
     downloaded = 0
 
-    # for id in range(args.start_id, args.end_id+1):
-    for id in tqdm(range(args.start_id, args.end_id+1)):
-
-        print('\033[H') # Чистим экран
-
-        book_url = f"https://tululu.org/b{id}/"
-        download_url = f"https://tululu.org/txt.php?id={id}"
+    for book_id in tqdm(range(args.start_id, args.end_id+1)):
         try:
-            head_response, download_response = get_response_and_check(book_url, download_url)
-        except:
-            print(f'Книги с id: "{id}" не существует.')
+            print('\033[H') # Чистим экран
+            book_urls = {
+                        "book_url":f"https://tululu.org/b{book_id}/",
+                        "download_url":f"https://tululu.org/txt.php",
+                        }
+            for type_of_url, url in book_urls.items():
+                response = get_response(url, book_id)
+                check_redirect(response)
+                if type_of_url == "book_url":
+                    head_response = response
+                elif type_of_url == "download_url":
+                    download_response = response
+
+            book_context = parse_book_context(head_response)
+
+            if not GENRE in book_context['genres']:
+                print('\033[H')  # Чистим экран
+                print(f'Книги с id: "{book_id}" не подходит по жанру.')
+                continue
+            book_filename = f"{book_id}. {book_context['title']}.txt"
+            book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
+
+            image_filename = Path(book_context['image_link']).name
+            full_img_link = urljoin(book_urls['book_url'], book_context['image_link'])
+
+            download_image(full_img_link, image_filename, IMAGE_FOLDER)
+            if book_context['comments']:
+                comments_filename = f"{book_id}. {book_context['title']}-comments.txt"
+                save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
+
+            downloaded+=1
+            print('\033[H')  # Чистим экран
+            print(f'Книга "{book_context["title"]}" сохранена в: "{book_save_path}".')
+
+        except ConnectionError:
+            print('\033[H')  # Чистим экран
+            print("Проблема с интернет соединением! Повторная попытка...")
+            sleep(5)
             continue
-        book_context = parse_book_context(head_response)
-        if not GENRE in book_context['genres']:
-            print(f'Книги с id: "{id}" не подходит по жанру.')
+
+        except HTTPError:
+            print('\033[H')  # Чистим экран
+            print(f'Книги с id: "{book_id}" не существует.')
             continue
-        book_filename = f"{id}. {book_context['title']}.txt"
-        book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
 
-        image_filename = Path(book_context['image_link']).name
-        full_img_link = urljoin(book_url, book_context['image_link'])
-
-        download_image(full_img_link, image_filename, IMAGE_FOLDER)
-        if book_context['comments']:
-            comments_filename = f"{id}. {book_context['title']}-comments.txt"
-            save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
-
-        downloaded+=1
-        print(f'Книга "{book_context["title"]}" сохранена в: "{book_save_path}"')
-
-    print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ")
+    print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ.")
 
 
 def parse_book_context(response):
 
-    context={}
     page_text = BeautifulSoup(response.text, 'lxml')
-    
     title_and_author = page_text.find('td', class_='ow_px_td').find('h1').text.split('::')
-    title_and_author = map(lambda x: x.strip(), title_and_author)
-
-    context['title'], context['author'] = title_and_author
-    context["image_link"] = page_text.find("div", class_="bookimage").find("img")["src"]
+    title_and_author = list(map(lambda x: x.strip(), title_and_author))
     dirt_genres = page_text.find("span", class_="d_book").find_all("a")
-    context['genres'] = list(map(lambda x: x.text, dirt_genres))
-
-    context['comments'] = []
     divs = page_text.find_all("div", class_="texts")
-    for div in divs:
-        comment = div.find("span", class_="black").text
-        context['comments'].append(comment)
 
+    comments = [div.find("span", class_="black").text for div in divs]
+
+    context = {'title': title_and_author[0],
+               'author': title_and_author[1],
+               'image_link': page_text.find("div", class_="bookimage").find("img")["src"],
+               'genres': list(map(lambda x: x.text, dirt_genres)),
+               'comments': comments,
+               }
     return context
 
 
@@ -107,19 +123,19 @@ def save_comments(comments, filename, folder='comments/'):
            file.write("\n".join(comments))
 
 
-def get_response_and_check(*urls):
-    responses = []
-    for url in urls:
-        response = requests.get(url, allow_redirects=False)
-        response.raise_for_status()
-        check_redirect(response)
-        responses.append(response)
-    return responses
+def get_response(url, id):
+    params = {"id": id}
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response
 
 def check_redirect(response):
-    if response.status_code !=200:
-        raise HTTPError()
 
+    redirect_codes = [300,301,302,303,304,305,306,307,308]
+
+    for code in response.history:
+        if code.status_code in redirect_codes:
+            raise HTTPError()
 
 if __name__ == "__main__":
     main()

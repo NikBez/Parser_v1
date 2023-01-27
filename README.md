@@ -1,5 +1,5 @@
 # Download images from tululu.ru
-This script can download books in `.txt` format to your computer
+This script can download books in `.txt` format to your computer.
 
 ## How to install
 
@@ -8,7 +8,7 @@ pipenv install -r requirements.txt
 ````
 ## How to setup
 
-All settings have default values, but you can change it if you want
+All settings have default values, but you can change it if you want.
 ````
 BOOK_FOLDER - путь к папке с книгами
 IMAGE_FOLDER - путь к папке с обложками
