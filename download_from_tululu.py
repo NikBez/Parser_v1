@@ -15,6 +15,7 @@ BOOK_FOLDER = "books/"
 IMAGE_FOLDER = "images/"
 COMMENTS_FOLDER = "comments/"
 GENRE = "Научная фантастика"
+CLEAN_TERMINAL_CODE = "\033[H"
 
 
 def main():
@@ -30,30 +31,24 @@ def main():
 
     for book_id in tqdm(range(args.start_id, args.end_id+1)):
         try:
-            print('\033[H')  # Чистим экран
-            book_urls = {
-                        "book_url": f"https://tululu.org/b{book_id}/",
-                        "download_url": f"https://tululu.org/txt.php",
-                        }
-            for type_of_url, url in book_urls.items():
-                response = get_response(url, book_id)
-                check_redirect(response)
-                if type_of_url == "book_url":
-                    head_response = response
-                elif type_of_url == "download_url":
-                    download_response = response
+            print(CLEAN_TERMINAL_CODE)  # Чистим экран
+
+            book_url = f"https://tululu.org/b{book_id}/"
+            download_url = "https://tululu.org/txt.php"
+            head_response = get_response(book_url, book_id)
+            download_response = get_response(download_url, book_id)
 
             book_context = parse_book_context(head_response)
 
             if GENRE not in book_context['genres']:
-                print('\033[H')  # Чистим экран
+                print(CLEAN_TERMINAL_CODE)  # Чистим экран
                 print(f'Книги с id: "{book_id}" не подходит по жанру.')
                 continue
             book_filename = f"{book_id}. {book_context['title']}.txt"
             book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
 
             image_filename = Path(book_context['image_link']).name
-            full_img_link = urljoin(book_urls['book_url'], book_context['image_link'])
+            full_img_link = urljoin(book_url, book_context['image_link'])
 
             download_image(full_img_link, image_filename, IMAGE_FOLDER)
             if book_context['comments']:
@@ -61,17 +56,17 @@ def main():
                 save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
 
             downloaded += 1
-            print('\033[H')  # Чистим экран
+            print(CLEAN_TERMINAL_CODE)  # Чистим экран
             print(f'Книга "{book_context["title"]}" сохранена в: "{book_save_path}".')
 
         except ConnectionError:
-            print('\033[H')  # Чистим экран
+            print(CLEAN_TERMINAL_CODE)  # Чистим экран
             print("Проблема с интернет соединением! Повторная попытка...")
             sleep(5)
             continue
 
         except HTTPError:
-            print('\033[H')  # Чистим экран
+            print(CLEAN_TERMINAL_CODE)  # Чистим экран
             print(f'Книги с id: "{book_id}" не существует.')
             continue
 
@@ -130,15 +125,9 @@ def get_response(url, id):
     params = {"id": id}
     response = requests.get(url, params=params)
     response.raise_for_status()
+    if response.history:
+        raise HTTPError()
     return response
-
-
-def check_redirect(response):
-    redirect_codes = [300, 301, 302, 303, 304, 305, 306, 307, 308]
-
-    for code in response.history:
-        if code.status_code in redirect_codes:
-            raise HTTPError()
 
 
 if __name__ == "__main__":
