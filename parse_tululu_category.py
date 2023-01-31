@@ -1,3 +1,5 @@
+import sys
+
 from bs4 import BeautifulSoup
 from pathlib import Path
 from pathvalidate import sanitize_filename
@@ -14,9 +16,11 @@ import json
 
 BOOK_FOLDER = "books/"
 IMAGE_FOLDER = "images/"
-JSON_FOLDER = ""
+JSON_FOLDER = Path.cwd()
+CATEGORY_URL = "https://tululu.org/l55/"
+BASE_PATH = Path.cwd()
+
 CLEAN_TERMINAL_CODE = "\033[H"
-CATEGORY_PAGE = "https://tululu.org/l55/"
 
 
 def main():
@@ -24,14 +28,21 @@ def main():
     parser = argparse.ArgumentParser(
         description="Этот скрипт скачивает книги с библиотеки tululu.ru."
     )
-    parser.add_argument('start_page', nargs='?', default=1, help="Страница с которого начать.", type=int)
-    parser.add_argument('end_page', nargs='?', default=1, help="Страница которой закончить.", type=int)
+    parser.add_argument('start_page', nargs='?', default=701, help="Страница с которого начать.", type=int)
+    parser.add_argument('end_page', nargs='?', default=701, help="Страница которой закончить.", type=int)
+    parser.add_argument("-d", '--dest_path', nargs='?', default=BASE_PATH, help="Корневой путь к папкам")
+    parser.add_argument("-j", '--json_path', nargs='?', default=JSON_FOLDER, help="Путь, по которому сохранять файл c данными")
+    parser.add_argument('--skip_imgs', nargs='?', default=False, help="Не скачивать изображения")
+    parser.add_argument('--skip_txt', nargs='?', default=False, help="Не скачивать книги")
     args = parser.parse_args()
 
     downloaded = 0
     books_metadata = []
-    book_ids = get_book_ids(CATEGORY_PAGE, args.start_page, args.end_page)
-
+    try:
+        book_ids = get_book_ids(CATEGORY_URL, args.start_page, args.end_page)
+    except ConnectionError:
+        print("Проблема с интернет соединением! Повторная попытка...")
+        sys.exit()
     for book_id in tqdm(book_ids):
         try:
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
@@ -43,17 +54,16 @@ def main():
 
             book_context = parse_book_context(head_response)
             book_filename = f"{book_id}. {book_context['title']}.txt"
-            book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
-
+            book_save_path = download_txt(download_response, book_filename, Path(args.dest_path, BOOK_FOLDER)) if not args.skip_txt else ""
             image_filename = Path(book_context['image_link']).name
             full_img_link = urljoin(book_url, book_context['image_link'])
-            img_src = download_image(full_img_link, image_filename, IMAGE_FOLDER)
+            img_src = download_image(full_img_link, image_filename, Path(args.dest_path, IMAGE_FOLDER)) if not args.skip_imgs else ""
 
             books_metadata.append({
                 "title": book_context['title'],
                 "author": book_context['author'],
-                "img_src": img_src,
-                "book_path": book_save_path,
+                "img_src": str(img_src),
+                "book_path": str(book_save_path),
                 "comments": book_context['comments'],
                 "genres": book_context['genres'],
             })
@@ -74,21 +84,27 @@ def main():
             continue
 
     books_metadata_json = json.dumps(books_metadata, ensure_ascii=False, indent=4)
-    with open(urljoin(JSON_FOLDER, 'books.json'), 'w') as file:
+    json_file_path = Path(args.dest_path)/'books.json' if args.json_path == args.dest_path else Path(args.json_path)/'books.json'
+    with open(json_file_path, 'w') as file:
         file.write(books_metadata_json)
-
     print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ.")
 
 
 def parse_book_context(response):
 
     page_text = BeautifulSoup(response.text, 'lxml')
-    title_and_author = page_text.find('td', class_='ow_px_td').find('h1').text.split('::')
-    title_and_author = list(map(lambda x: x.strip(), title_and_author))
-    dirt_genres = page_text.find("span", class_="d_book").find_all("a")
-    divs = page_text.find_all("div", class_="texts")
 
-    comments = [div.find("span", class_="black").text for div in divs]
+    title_and_author_selector = ".ow_px_td h1"
+    dirt_genres_selector = "span.d_book a"
+    divs_selector = "div.texts"
+    comments_selector = "span.black"
+
+    title_and_author = page_text.select_one(title_and_author_selector).text.split('::')
+    title_and_author = list(map(lambda x: x.strip(), title_and_author))
+    dirt_genres = page_text.select(dirt_genres_selector)
+
+    divs = page_text.select(divs_selector)
+    comments = [div.select_one(comments_selector).text for div in divs]
 
     context = {'title': title_and_author[0],
                'author': title_and_author[1],
@@ -99,22 +115,22 @@ def parse_book_context(response):
     return context
 
 
-def download_txt(response, filename, folder='books/'):
+def download_txt(response, filename, folder):
 
-    os.makedirs(BOOK_FOLDER, exist_ok=True)
+    os.makedirs(folder, exist_ok=True)
     cleaned_filename = sanitize_filename(filename)
-    book_save_path = os.path.join(folder, cleaned_filename)
+    book_save_path = Path(folder)/cleaned_filename
     with open(book_save_path, 'wb') as book:
         book.write(response.content)
     return book_save_path
 
 
-def download_image(img_url, img_filename, folder='images/'):
+def download_image(img_url, img_filename, folder):
 
-    os.makedirs(IMAGE_FOLDER, exist_ok=True)
+    os.makedirs(folder, exist_ok=True)
     response = requests.get(img_url)
     response.raise_for_status()
-    image_save_path = os.path.join(folder, img_filename)
+    image_save_path = Path(folder)/img_filename
     with open(image_save_path, "wb") as image:
         image.write(response.content)
     return image_save_path
@@ -129,10 +145,10 @@ def get_response(url, id):
     return response
 
 
-def get_book_ids(base_url, start_page, end_page):
+def get_book_ids(url, start_page, end_page):
     book_ids = []
     for page in range(start_page, end_page+1):
-        page_url = urljoin(base_url, str(page))
+        page_url = urljoin(url, str(page))
         response = requests.get(page_url)
         response.raise_for_status()
         book_ids += get_page_ids(response)
@@ -140,8 +156,9 @@ def get_book_ids(base_url, start_page, end_page):
 
 
 def get_page_ids(response):
+    book_ids_selector = "div#content table.d_book"
     page_text = BeautifulSoup(response.text, 'lxml')
-    book_ids = page_text.find("div", id="content").find_all("table", class_="d_book")
+    book_ids = page_text.select(book_ids_selector)
     return [book_id.a['href'].lstrip("/b").rstrip("/") for book_id in book_ids]
 
 
