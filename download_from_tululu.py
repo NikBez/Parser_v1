@@ -9,13 +9,15 @@ from pathvalidate import sanitize_filename
 from urllib.parse import urljoin
 from tqdm import tqdm
 from time import sleep
+import json
+from parse_tululu_category import get_book_ids
 
 
 BOOK_FOLDER = "books/"
 IMAGE_FOLDER = "images/"
-COMMENTS_FOLDER = "comments/"
-GENRE = "Научная фантастика"
+JSON_FOLDER = ""
 CLEAN_TERMINAL_CODE = "\033[H"
+CATEGORY_PAGE = "https://tululu.org/l55/"
 
 
 def main():
@@ -23,13 +25,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="Этот скрипт скачивает книги с библиотеки tululu.ru."
     )
-    parser.add_argument('start_id', nargs='?', default=1, help="ID - с которого начать.", type=int)
-    parser.add_argument('end_id', nargs='?', default=10, help="ID - которым закончить.", type=int)
+    parser.add_argument('start_page', nargs='?', default=1, help="Страница с которого начать.", type=int)
+    parser.add_argument('end_page', nargs='?', default=1, help="Страница которой закончить.", type=int)
     args = parser.parse_args()
 
     downloaded = 0
+    books_metadata = []
+    book_ids = get_book_ids(CATEGORY_PAGE, args.start_page, args.end_page)
 
-    for book_id in tqdm(range(args.start_id, args.end_id+1)):
+
+    for book_id in tqdm(book_ids):
         try:
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
 
@@ -39,21 +44,25 @@ def main():
             download_response = get_response(download_url, book_id)
 
             book_context = parse_book_context(head_response)
-
-            if GENRE not in book_context['genres']:
-                print(CLEAN_TERMINAL_CODE)  # Чистим экран
-                print(f'Книги с id: "{book_id}" не подходит по жанру.')
-                continue
             book_filename = f"{book_id}. {book_context['title']}.txt"
             book_save_path = download_txt(download_response, book_filename, BOOK_FOLDER)
 
             image_filename = Path(book_context['image_link']).name
             full_img_link = urljoin(book_url, book_context['image_link'])
 
-            download_image(full_img_link, image_filename, IMAGE_FOLDER)
-            if book_context['comments']:
-                comments_filename = f"{book_id}. {book_context['title']}-comments.txt"
-                save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
+            img_src = download_image(full_img_link, image_filename, IMAGE_FOLDER)
+            # if book_context['comments']:
+            #     comments_filename = f"{book_id}. {book_context['title']}-comments.txt"
+            #     save_comments(book_context['comments'], comments_filename, COMMENTS_FOLDER)
+
+            books_metadata.append({
+                "title": book_context['title'],
+                "author": book_context['author'],
+                "img_src": img_src,
+                "book_path": book_save_path,
+                "comments": book_context['comments'],
+                "genres": book_context['genres'],
+            })
 
             downloaded += 1
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
@@ -69,6 +78,14 @@ def main():
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
             print(f'Книги с id: "{book_id}" не существует.')
             continue
+
+    books_metadata_json = json.dumps(books_metadata, ensure_ascii=False, indent=4)
+
+    print(urljoin(JSON_FOLDER, 'books.json'))
+
+    with open(urljoin(JSON_FOLDER, 'books.json'), 'w') as file:
+        file.write(books_metadata_json)
+
 
     print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ.")
 
@@ -111,14 +128,6 @@ def download_image(img_url, img_filename, folder='images/'):
     with open(image_save_path, "wb") as image:
         image.write(response.content)
     return image_save_path
-
-
-def save_comments(comments, filename, folder='comments/'):
-
-    os.makedirs(COMMENTS_FOLDER, exist_ok=True)
-    comments_save_path = os.path.join(folder, filename)
-    with open(comments_save_path, 'w') as file:
-        file.write("\n".join(comments))
 
 
 def get_response(url, id):
