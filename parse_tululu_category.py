@@ -28,8 +28,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Этот скрипт скачивает книги с библиотеки tululu.ru.'
     )
-    parser.add_argument('start_page', nargs='?', default=701, help='Страница с которого начать.', type=int)
-    parser.add_argument('end_page', nargs='?', default=701, help='Страница которой закончить.', type=int)
+    parser.add_argument('start_page', nargs='?', default=0, help='Страница с которого начать.', type=int)
+    parser.add_argument('end_page', nargs='?', default=1, help='Страница которой закончить.', type=int)
     parser.add_argument('-d', '--dest_path', nargs='?', default=BASE_PATH, help='Корневой путь к папкам')
     parser.add_argument('-j', '--json_path', nargs='?', default=JSON_FOLDER, help='Путь, по которому сохранять файл c данными')
     parser.add_argument('--skip_imgs', action='store_true', help='Не скачивать изображения')
@@ -38,21 +38,19 @@ def main():
 
     downloaded = 0
     books = []
-    while True:
+
+    book_ids = []
+    for page in range(args.start_page, args.end_page + 1):
         try:
-            book_ids = get_book_ids(CATEGORY_URL, args.start_page, args.end_page)
-            break
-        except ConnectionError:
-            print('Проблема с интернет соединением! Повторная попытка...')
-            sleep(5)
+            page_ids = get_page_ids(CATEGORY_URL, str(page))
+            book_ids += page_ids
         except HTTPError:
-            print('Страница категории не найдена.')
-            sys.exit()
+            print(CLEAN_TERMINAL_CODE)  # Чистим экран
+            print(f'Страница {page} не существует.')
 
     for book_id in tqdm(book_ids):
         try:
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
-
             book_url = f'https://tululu.org/b{book_id}/'
             download_url = 'https://tululu.org/txt.php'
             head_response = get_response(book_url, book_id)
@@ -161,18 +159,24 @@ def get_response(url, id):
     return response
 
 
-def get_book_ids(url, start_page, end_page):
-    book_ids = []
-    for page in range(start_page, end_page+1):
-        page_url = urljoin(url, str(page))
-        response = requests.get(page_url)
-        response.raise_for_status()
-        if not response.is_redirect:
-            book_ids += get_page_ids(response)
-    return book_ids
+def get_page_ids(url, page_number):
+
+    page_url = urljoin(url, page_number)
+    while True:
+        try:
+            response = requests.get(page_url, allow_redirects=False)
+            response.raise_for_status()
+            break
+        except ConnectionError:
+            print('Проблема с интернет соединением! Повторная попытка...')
+            sleep(5)
+            continue
+    if not response.is_redirect:
+        return parse_book_ids(response)
+    raise HTTPError()
 
 
-def get_page_ids(response):
+def parse_book_ids(response):
     book_ids_selector = 'div#content table.d_book'
     page_text = BeautifulSoup(response.text, 'lxml')
     book_ids = page_text.select(book_ids_selector)
