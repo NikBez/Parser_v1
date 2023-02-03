@@ -14,58 +14,70 @@ from time import sleep
 import json
 
 
-BOOK_FOLDER = "books/"
-IMAGE_FOLDER = "images/"
+BOOK_FOLDER = 'books/'
+IMAGE_FOLDER = 'images/'
 JSON_FOLDER = Path.cwd()
-CATEGORY_URL = "https://tululu.org/l55/"
+CATEGORY_URL = 'https://tululu.org/l55/'
 BASE_PATH = Path.cwd()
 
-CLEAN_TERMINAL_CODE = "\033[H"
+CLEAN_TERMINAL_CODE = '\033[H'
 
 
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Этот скрипт скачивает книги с библиотеки tululu.ru."
+        description='Этот скрипт скачивает книги с библиотеки tululu.ru.'
     )
-    parser.add_argument('start_page', nargs='?', default=701, help="Страница с которого начать.", type=int)
-    parser.add_argument('end_page', nargs='?', default=701, help="Страница которой закончить.", type=int)
-    parser.add_argument("-d", '--dest_path', nargs='?', default=BASE_PATH, help="Корневой путь к папкам")
-    parser.add_argument("-j", '--json_path', nargs='?', default=JSON_FOLDER, help="Путь, по которому сохранять файл c данными")
-    parser.add_argument('--skip_imgs', nargs='?', default=False, help="Не скачивать изображения")
-    parser.add_argument('--skip_txt', nargs='?', default=False, help="Не скачивать книги")
+    parser.add_argument('start_page', nargs='?', default=701, help='Страница с которого начать.', type=int)
+    parser.add_argument('end_page', nargs='?', default=701, help='Страница которой закончить.', type=int)
+    parser.add_argument('-d', '--dest_path', nargs='?', default=BASE_PATH, help='Корневой путь к папкам')
+    parser.add_argument('-j', '--json_path', nargs='?', default=JSON_FOLDER, help='Путь, по которому сохранять файл c данными')
+    parser.add_argument('--skip_imgs', action='store_true', help='Не скачивать изображения')
+    parser.add_argument('--skip_txt', action='store_true', help='Не скачивать книги')
     args = parser.parse_args()
 
     downloaded = 0
-    books_metadata = []
-    try:
-        book_ids = get_book_ids(CATEGORY_URL, args.start_page, args.end_page)
-    except ConnectionError:
-        print("Проблема с интернет соединением! Повторная попытка...")
-        sys.exit()
+    books = []
+    while True:
+        try:
+            book_ids = get_book_ids(CATEGORY_URL, args.start_page, args.end_page)
+            break
+        except ConnectionError:
+            print('Проблема с интернет соединением! Повторная попытка...')
+            sleep(5)
+        except HTTPError:
+            print('Страница категории не найдена.')
+            sys.exit()
+
     for book_id in tqdm(book_ids):
         try:
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
 
-            book_url = f"https://tululu.org/b{book_id}/"
-            download_url = "https://tululu.org/txt.php"
+            book_url = f'https://tululu.org/b{book_id}/'
+            download_url = 'https://tululu.org/txt.php'
             head_response = get_response(book_url, book_id)
             download_response = get_response(download_url, book_id)
 
             book_context = parse_book_context(head_response)
             book_filename = f"{book_id}. {book_context['title']}.txt"
-            book_save_path = download_txt(download_response, book_filename, Path(args.dest_path, BOOK_FOLDER)) if not args.skip_txt else ""
+            if args.skip_txt:
+                book_save_path = ""
+            else:
+                book_save_path = download_txt(download_response, book_filename, Path(args.dest_path, BOOK_FOLDER))
             image_filename = Path(book_context['image_link']).name
             full_img_link = urljoin(book_url, book_context['image_link'])
-            img_src = download_image(full_img_link, image_filename, Path(args.dest_path, IMAGE_FOLDER)) if not args.skip_imgs else ""
+            if args.skip_imgs:
+                img_src = ""
+            else:
+                img_src = download_image(full_img_link, image_filename, Path(args.dest_path, IMAGE_FOLDER))
 
-            books_metadata.append({
-                "title": book_context['title'],
-                "author": book_context['author'],
-                "img_src": str(img_src),
-                "book_path": str(book_save_path),
-                "comments": book_context['comments'],
-                "genres": book_context['genres'],
+            books.append({
+                'title': book_context['title'],
+                'author': book_context['author'],
+                'img_src': str(img_src),
+                'book_path': str(book_save_path),
+                'comments': book_context['comments'],
+                'genres': book_context['genres'],
             })
 
             downloaded += 1
@@ -74,7 +86,7 @@ def main():
 
         except ConnectionError:
             print(CLEAN_TERMINAL_CODE)  # Чистим экран
-            print("Проблема с интернет соединением! Повторная попытка...")
+            print('Проблема с интернет соединением! Повторная попытка...')
             sleep(5)
             continue
 
@@ -83,21 +95,24 @@ def main():
             print(f'Книги с id: "{book_id}" не существует.')
             continue
 
-    books_metadata_json = json.dumps(books_metadata, ensure_ascii=False, indent=4)
-    json_file_path = Path(args.dest_path)/'books.json' if args.json_path == args.dest_path else Path(args.json_path)/'books.json'
+    if args.json_path == args.dest_path:
+        json_file_path = Path(args.dest_path) / 'books.json'
+    else:
+        json_file_path = Path(args.json_path)/'books.json'
+
     with open(json_file_path, 'w') as file:
-        file.write(books_metadata_json)
-    print(f"\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ.")
+        json.dump(books, file, ensure_ascii=False, indent=4)
+    print(f'\nВСЕГО ЗАГРУЖЕНО: {downloaded} КНИГ.')
 
 
 def parse_book_context(response):
 
     page_text = BeautifulSoup(response.text, 'lxml')
 
-    title_and_author_selector = ".ow_px_td h1"
-    dirt_genres_selector = "span.d_book a"
-    divs_selector = "div.texts"
-    comments_selector = "span.black"
+    title_and_author_selector = '.ow_px_td h1'
+    dirt_genres_selector = 'span.d_book a'
+    divs_selector = 'div.texts'
+    comments_selector = 'span.black'
 
     title_and_author = page_text.select_one(title_and_author_selector).text.split('::')
     title_and_author = list(map(lambda x: x.strip(), title_and_author))
@@ -106,12 +121,13 @@ def parse_book_context(response):
     divs = page_text.select(divs_selector)
     comments = [div.select_one(comments_selector).text for div in divs]
 
-    context = {'title': title_and_author[0],
-               'author': title_and_author[1],
-               'image_link': page_text.find("div", class_="bookimage").find("img")["src"],
-               'genres': list(map(lambda x: x.text, dirt_genres)),
-               'comments': comments,
-               }
+    context = {
+        'title': title_and_author[0],
+        'author': title_and_author[1],
+        'image_link': page_text.find('div', class_='bookimage').find('img')['src'],
+        'genres': list(map(lambda x: x.text, dirt_genres)),
+        'comments': comments,
+        }
     return context
 
 
@@ -131,13 +147,13 @@ def download_image(img_url, img_filename, folder):
     response = requests.get(img_url)
     response.raise_for_status()
     image_save_path = Path(folder)/img_filename
-    with open(image_save_path, "wb") as image:
+    with open(image_save_path, 'wb') as image:
         image.write(response.content)
     return image_save_path
 
 
 def get_response(url, id):
-    params = {"id": id}
+    params = {'id': id}
     response = requests.get(url, params=params)
     response.raise_for_status()
     if response.history:
@@ -151,16 +167,17 @@ def get_book_ids(url, start_page, end_page):
         page_url = urljoin(url, str(page))
         response = requests.get(page_url)
         response.raise_for_status()
-        book_ids += get_page_ids(response)
+        if not response.is_redirect:
+            book_ids += get_page_ids(response)
     return book_ids
 
 
 def get_page_ids(response):
-    book_ids_selector = "div#content table.d_book"
+    book_ids_selector = 'div#content table.d_book'
     page_text = BeautifulSoup(response.text, 'lxml')
     book_ids = page_text.select(book_ids_selector)
-    return [book_id.a['href'].lstrip("/b").rstrip("/") for book_id in book_ids]
+    return [book_id.a['href'].lstrip('/b').rstrip('/') for book_id in book_ids]
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
