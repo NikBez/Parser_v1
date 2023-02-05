@@ -154,8 +154,7 @@ def get_response(url, id):
     params = {'id': id}
     response = requests.get(url, params=params)
     response.raise_for_status()
-    if response.history:
-        raise HTTPError()
+    check_redirect(response)
     return response
 
 
@@ -171,9 +170,9 @@ def get_page_ids(url, page_number):
             print('Проблема с интернет соединением! Повторная попытка...')
             sleep(5)
             continue
-    if not response.is_redirect:
-        return parse_book_ids(response)
-    raise HTTPError()
+    check_redirect(response)
+    return parse_book_ids(response)
+
 
 
 def parse_book_ids(response):
@@ -181,6 +180,11 @@ def parse_book_ids(response):
     page_text = BeautifulSoup(response.text, 'lxml')
     book_ids = page_text.select(book_ids_selector)
     return [book_id.a['href'].lstrip('/b').rstrip('/') for book_id in book_ids]
+
+
+def check_redirect(response):
+    if response.is_redirect:
+        raise HTTPError()
 
 
 if __name__ == '__main__':
