@@ -61,7 +61,8 @@ def main():
             if args.skip_txt:
                 book_save_path = ""
             else:
-                book_save_path = download_txt(download_response, book_filename, Path(args.dest_path, BOOK_FOLDER))
+                book_save_path = download_txt(download_response, book_filename, Path(BOOK_FOLDER))
+
             image_filename = Path(book_context['image_link']).name
             full_img_link = urljoin(book_url, book_context['image_link'])
             if args.skip_imgs:
