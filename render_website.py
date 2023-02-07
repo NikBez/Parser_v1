@@ -27,7 +27,7 @@ def rebuild():
         print("Файл не найден")
         sys.exit()
 
-    chunked_by_page_books = chunked(books, BOOKS_PER_PAGE)
+    chunked_by_page_books = list(chunked(books, BOOKS_PER_PAGE))
     os.makedirs('./pages/', exist_ok=True)
 
     env = Environment(
@@ -38,7 +38,11 @@ def rebuild():
         chunked_by_column_books = chunked(page, COLUMNS_COUNT)
         template = env.get_template('template.html')
         rendered_page = template.render(
-            book_rows=chunked_by_column_books
+            book_rows=chunked_by_column_books,
+            pages_count=len(chunked_by_page_books)+1,
+            active=count,
+            next=count+1,
+            previous=count-1,
         )
         with open(f'pages/index{count}.html', 'w', encoding="utf8") as file:
             file.write(rendered_page)
