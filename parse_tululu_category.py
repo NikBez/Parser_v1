@@ -28,8 +28,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Этот скрипт скачивает книги с библиотеки tululu.ru.'
     )
-    parser.add_argument('start_page', nargs='?', default=0, help='Страница с которого начать.', type=int)
-    parser.add_argument('end_page', nargs='?', default=1, help='Страница которой закончить.', type=int)
+    parser.add_argument('start_page', nargs='?', default=1, help='Страница с которого начать.', type=int)
+    parser.add_argument('end_page', nargs='?', default=2, help='Страница которой закончить.', type=int)
     parser.add_argument('-d', '--dest_path', nargs='?', default=BASE_PATH, help='Корневой путь к папкам')
     parser.add_argument('-j', '--json_path', nargs='?', default=JSON_FOLDER, help='Путь, по которому сохранять файл c данными')
     parser.add_argument('--skip_imgs', action='store_true', help='Не скачивать изображения')
@@ -67,7 +67,7 @@ def main():
             if args.skip_imgs:
                 img_src = ""
             else:
-                img_src = download_image(full_img_link, image_filename, Path(args.dest_path, IMAGE_FOLDER))
+                img_src = download_image(full_img_link, image_filename, Path(IMAGE_FOLDER))
 
             books.append({
                 'title': book_context['title'],
