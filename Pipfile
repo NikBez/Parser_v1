@@ -11,6 +11,7 @@ pathvalidate = "*"
 tqdm = "*"
 jinja2 = "*"
 livereload = "*"
+more-itertools = "*"
 
 [dev-packages]
 
