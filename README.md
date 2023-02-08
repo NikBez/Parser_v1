@@ -5,7 +5,8 @@
 ## How to install localy
 
 ````
-pip3 install -r requirements.txt
+pip3 install pipenv
+pipenv install -r requirements.txt
 ````
 ## How to setup
 
