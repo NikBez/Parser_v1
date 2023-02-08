@@ -8,28 +8,22 @@ from pathlib import Path
 from livereload import Server
 from more_itertools import chunked
 import argparse
+import logging
+
 
 COLUMNS_COUNT = 2
 BOOK_CARDS_PER_PAGE = 10
 
 
-def main():
-    rebuild()
-    server = Server()
-    server.watch(Path(args.json_path)/'books.json', rebuild)
-    server.watch('template.html', rebuild)
-    server.serve(root='.')
-
-
 def rebuild():
     try:
         with open(Path(args.json_path)/'books.json', "r") as file:
-            books = json.load(file)
+            books_context = json.load(file)
     except IOError:
-        print("Файл не найден.")
+        logging.error("Файл не найден.")
         sys.exit()
 
-    chunked_by_page_book_cards = list(chunked(books, BOOK_CARDS_PER_PAGE))
+    chunked_by_page_book_cards = list(chunked(books_context, BOOK_CARDS_PER_PAGE))
     os.makedirs('./pages/', exist_ok=True)
     env = Environment(
         loader=FileSystemLoader('.'),
@@ -50,8 +44,12 @@ def rebuild():
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description="Скрипт генерирует страницы сайта")
     parser.add_argument('json_path', nargs='?', default=JSON_FOLDER, help='Путь к файлу с данными')
     args = parser.parse_args()
-    main()
+
+    rebuild()
+    server = Server()
+    server.watch(Path(args.json_path) / 'books.json', rebuild)
+    server.watch('template.html', rebuild)
+    server.serve(root='.')

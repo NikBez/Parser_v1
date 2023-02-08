@@ -4,7 +4,6 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="../static/bootstrap.min.css">
     <link rel="icon" type="image/png" href="../static/favicon.png" sizes="16x16">
@@ -31,29 +30,29 @@
       </nav>
       {% for row in book_rows %}
         <div class="row">
-        {% for book in row %}
-          <div class="col">
-             <div class="card mb-3" style="max-width: 540px;">
-               <div class="row no-gutters">
-                 <div class="col-md-4">
-                  <img src="../{{ book.img_src }}" class="card-img" alt='{{ book.title }}'>
-                 </div>
-                 <div class="col-md-8">
-                   <div class="card-body">
-                     <h5 class="card-title"><a href="../{{ book.book_path|urlencode }}" target="_blank">{{ book.title }}</a></h5>
-                     <p class="card-text">{{ book.author }}</p>
-                     {% for ganre in book.genres %}
-                       <span class="badge badge-light">{{ ganre }}</span>
-                     {% endfor %}
-                     <h6 class="mt-5"><a href="../{{ book.book_path|urlencode }}">Читать</a> </h6>
-                   </div>
-                 </div>
-               </div>
-             </div>
-          </div>
-        {% endfor %}
-        <div class="w-100"></div>
-      </div>
+          {% for book in row %}
+            <div class="col">
+              <div class="card mb-3" style="max-width: 540px;">
+                <div class="row no-gutters">
+                  <div class="col-md-4">
+                    <img src="../{{ book.img_src }}" class="card-img" alt='{{ book.title }}'>
+                  </div>
+                  <div class="col-md-8">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ book.title }}</h5>
+                      <p class="card-text">{{ book.author }}</p>
+                      {% for ganre in book.genres %}
+                        <span class="badge badge-light">{{ ganre }}</span>
+                      {% endfor %}
+                      <h6 class="mt-5"><a href="../{{ book.book_path|urlencode }}">Читать</a> </h6>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+          <div class="w-100"></div>
+        </div>
       {% endfor %}
     </div>
   </body>
