@@ -5,7 +5,7 @@
 ## How to install localy
 
 ````
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ````
 ## How to setup
 
