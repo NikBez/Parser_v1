@@ -1,5 +1,3 @@
-import sys
-
 from bs4 import BeautifulSoup
 from pathlib import Path
 from pathvalidate import sanitize_filename
