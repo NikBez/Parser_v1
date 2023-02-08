@@ -35,7 +35,13 @@ Use `-h` for see more information
 ### render_website.py:
 ````
 COLUMNS_COUNT = сколько колонок верстать на сайте
-BOOKS_PER_PAGE = сколько книг добавлять на одну страницу
+BOOK_CARDS_PER_PAGE = сколько книг добавлять на одну страницу
+````
+
+List of command-line arguments:
+
+````
+json_path - можно задать свой путь к файлу json
 ````
 
 ## How to use
