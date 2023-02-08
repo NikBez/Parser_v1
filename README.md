@@ -50,9 +50,16 @@ python3 parse_tululu_category.py
 python3 render_website.py
 ````
 
-## How to use Local online
+## How to use Local offline
 Будет создана папка `pages/` в которую будет сохранены сгенерированные страницы сайта.  
 **Их можно напрямую открыть в вашем браузере** 
+
+## How to use Local online
+Start local server using:
+````
+python3 render_website.py
+````
+Go to this [**link**](http://127.0.0.1:5500/pages/index1.html)
 
 ## LIVE DEMO
 Готовый сверстанный сайт можно посмотреть по ссылке 
