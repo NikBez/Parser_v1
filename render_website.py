@@ -18,10 +18,10 @@ BOOK_CARDS_PER_PAGE = 10
 
 def rebuild():
     try:
-        with open(Path(args.json_path)/'books.json', "r") as file:
+        with open(Path(args.json_path)/'books.json', 'r') as file:
             books_meta = json.load(file)
     except IOError:
-        logging.error("Файл не найден.")
+        logging.error('Файл не найден.')
         sys.exit()
 
     chunked_by_page_book_cards = list(chunked(books_meta, BOOK_CARDS_PER_PAGE))
@@ -40,12 +40,12 @@ def rebuild():
             next=count+1,
             previous=count-1,
         )
-        with open(f'pages/index{count}.html', 'w', encoding="utf8") as file:
+        with open(f'pages/index{count}.html', 'w', encoding='utf8') as file:
             file.write(rendered_page)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Скрипт генерирует страницы сайта")
+    parser = argparse.ArgumentParser(description='Скрипт генерирует страницы сайта')
     parser.add_argument('json_path', nargs='?', default=JSON_FOLDER, help='Путь к файлу с данными')
     args = parser.parse_args()
 
