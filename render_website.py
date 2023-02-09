@@ -19,12 +19,12 @@ BOOK_CARDS_PER_PAGE = 10
 def rebuild():
     try:
         with open(Path(args.json_path)/'books.json', "r") as file:
-            books_content = json.load(file)
+            books_meta = json.load(file)
     except IOError:
         logging.error("Файл не найден.")
         sys.exit()
 
-    chunked_by_page_book_cards = list(chunked(books_content, BOOK_CARDS_PER_PAGE))
+    chunked_by_page_book_cards = list(chunked(books_meta, BOOK_CARDS_PER_PAGE))
     os.makedirs('./pages/', exist_ok=True)
     env = Environment(
         loader=FileSystemLoader('.'),
