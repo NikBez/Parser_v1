@@ -1,14 +1,15 @@
+import argparse
+import json
+import logging
 import os
 import sys
-import json
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from parse_tululu_category import JSON_FOLDER
-from pathlib import Path
 from livereload import Server
 from more_itertools import chunked
-import argparse
-import logging
+from pathlib import Path
+
+from parse_tululu_category import JSON_FOLDER
 
 
 COLUMNS_COUNT = 2
@@ -18,12 +19,12 @@ BOOK_CARDS_PER_PAGE = 10
 def rebuild():
     try:
         with open(Path(args.json_path)/'books.json', "r") as file:
-            books_context = json.load(file)
+            books_content = json.load(file)
     except IOError:
         logging.error("Файл не найден.")
         sys.exit()
 
-    chunked_by_page_book_cards = list(chunked(books_context, BOOK_CARDS_PER_PAGE))
+    chunked_by_page_book_cards = list(chunked(books_content, BOOK_CARDS_PER_PAGE))
     os.makedirs('./pages/', exist_ok=True)
     env = Environment(
         loader=FileSystemLoader('.'),
